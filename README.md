@@ -1,5 +1,3 @@
-# 📄 RAG Private Document Chatbot
-
 ![Python](https://img.shields.io/badge/Python-3.x-blue)
 ![LangChain](https://img.shields.io/badge/LangChain-RAG-green)
 ![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-orange)
@@ -7,52 +5,58 @@
 
 ---
 
-## 📌 Project Overview
+# RAG Private Document Chatbot
 
-The **RAG Private Document Chatbot** is a **Python-based** RAG with a web application that enables users to upload a PDF document and interact with it via a **conversational interface**.
+A RAG (Retrieval-Augmented Generation) chatbot that allows you to chat with your private PDF documents using LangChain, OpenAI, and ChromaDB.
 
-The project demonstrates:
-- Building a **Retrieval-Augmented Generation (RAG)** pipeline using **LangChain**.
-- Processing and embedding PDF documents for semantic search using **ChromaDB**.
-- Implementing **Conversational Memory** to handle follow-up questions effectively.
-- Using **OpenAI's GPT-4o-mini** with strict custom prompting to prevent hallucinations.
-- Providing a responsive Web UI using **Flask**.
+## Features
+- **PDF Upload**: Upload and process PDF documents.
+- **RAG Architecture**: Uses ChromaDB for vector storage and OpenAI for generation.
+- **Session Management**: Each user session has its own isolated context.
+- **Modern Structure**: Organized with Flask, Pydantic Settings, and Docker.
 
----
+## Prerequisites
+- Python 3.12+
+- OpenAI API Key
 
-## 🚀 Features
+## Setup
 
-- 📂 **File Upload:** Upload and analyze the PDF file.
-- 🧠 **Conversational Memory:** The bot remembers context from previous turns in the chat.
-- 🔍 **Strict Contextual Answers:** Custom prompts ensure the AI answers *only* using the provided documents.
-- 🔒 **Session Isolation:** Each user session maintains its own memory and vector store, ensuring data privacy between tabs.
-- 💻 **Web Interface:** Clean, responsive HTML frontend served via Flask.
+### 1. Environment Variables
+Create a `.env` file in the root directory:
+```bash
+OPENAI_API_KEY=your_api_key_here
+OPENAI_MODEL_NAME=gpt-4o-mini
+```
 
----
+### 2. Local Development (using uv)
+This project uses `uv` for dependency management.
 
-## 🧑‍💻 Skills & Technologies
+```bash
+# Install dependencies
+uv sync
 
-- **Programming Language:** Python  
-- **LLM Framework:** LangChain (Chains, Memory, Prompts)  
-- **Model Provider:** OpenAI (GPT-4o-mini)  
-- **Web Framework:** Flask  
-- **Vector Database:** ChromaDB  
-- **Embedding Model:** HuggingFace Embeddings (SentenceTransformers)  
-- **Document Handling:** PyPDF  
+# Run the application
+uv run flask --app src/app.py run
+```
 
----
+Access the app at `http://localhost:5000`.
 
-## 📸 Example Usage
+### 3. Docker
+To run with Docker Compose:
 
-Below is a demonstration of the chatbot in action. The user uploads a restaurant receipt PDF and asks questions about the totals and specific items.
-<img width="1595" height="1707" alt="Screenshot 2026-01-23 110006" src="https://github.com/user-attachments/assets/6c65edac-c28c-4f62-bb0e-99faac7804cb" />
+```bash
+docker compose up --build
+```
 
----
+## Project Structure
+- `src/`: Application source code.
+    - `app.py`: Flask routes and entry point.
+    - `rag.py`: Core RAG logic.
+    - `config.py`: Configuration settings.
+- `Dockerfile`: Container definition.
+- `docker-compose.yml`: Local deployment config.
 
-## ▶️ How to Run the Project
-
-### 1. Clone the repository
-git clone https://github.com/mojarrad353/private_document_chatbot.git
-
-### 2. Clone the repository
-python run app.py (Note: add your OpenAI API key in .env)
+## Usage
+1. Open the application in your browser.
+2. Upload a PDF file.
+3. Start chatting with your document!

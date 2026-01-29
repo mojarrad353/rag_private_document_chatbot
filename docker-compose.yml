@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL_NAME=${OPENAI_MODEL_NAME}
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+    volumes:
+      - ./uploads:/app/uploads
+      - ./chroma_db:/app/chroma_db
