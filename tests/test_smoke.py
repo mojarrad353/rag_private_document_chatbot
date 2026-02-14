@@ -2,7 +2,7 @@ import sys
 import os
 
 # Add src to python path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from src.config import settings
 
