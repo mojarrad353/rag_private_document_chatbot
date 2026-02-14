@@ -29,7 +29,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = "src"
+pythonpath = "."
 addopts = "--cov=src --cov-report=term-missing"
 
 [tool.mypy]
@@ -48,6 +48,7 @@ skips = ["B101"]
 
 [tool.coverage.run]
 source = ["src"]
+omit = ["src/original_main.py"]
 
 [tool.black]
 line-length = 88
