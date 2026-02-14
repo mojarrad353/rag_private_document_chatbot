@@ -17,3 +17,9 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "sentence-transformers>=5.2.2",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pylint>=3.0.0",
+    "pytest>=8.0.0",
+]
