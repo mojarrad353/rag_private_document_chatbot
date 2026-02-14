@@ -82,7 +82,7 @@ def chat():
         return jsonify({"error": "An error occurred processing your request."}), 500
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("Starting Flask Server...")
     # Fix Bandit B201: Do not hardcode debug=True in production
     # Use environment variable FLASK_DEBUG, default to False
