@@ -22,7 +22,32 @@ dependencies = [
 dev = [
     "pylint>=3.0.0",
     "pytest>=8.0.0",
+    "black>=24.0.0",
+    "mypy>=1.8.0",
+    "bandit>=1.7.0",
+    "pytest-cov>=4.1.0",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = "src"
+addopts = "--cov=src --cov-report=term-missing"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B101"]
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.black]
+line-length = 88

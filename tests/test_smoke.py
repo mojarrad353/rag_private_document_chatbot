@@ -2,9 +2,10 @@ import sys
 import os
 
 # Add src to python path
-sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
 
 from config import settings
+
 
 def test_config_defaults():
     """Test that default settings are loaded correctly."""

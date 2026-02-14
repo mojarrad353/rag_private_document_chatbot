@@ -3,6 +3,7 @@ This module contains the original main script for testing the RAG pipeline local
 """
 
 import os
+
 # from dotenv import load_dotenv # Assuming loaded via settings or handled here
 
 # pylint: disable=no-name-in-module
@@ -39,7 +40,7 @@ def main():
     # ---------------------------------------------------------
     # 2. LOAD LOCAL PDF
     # ---------------------------------------------------------
-    filename = 'sample_restaurant_receipts.pdf'
+    filename = "sample_restaurant_receipts.pdf"
 
     # Verify file exists
     if not os.path.isfile(filename):
@@ -59,16 +60,12 @@ def main():
     # Embedding
     embeddings = HuggingFaceEmbeddings()
     docsearch = Chroma.from_documents(texts, embeddings)
-    print('Document ingested')
+    print("Document ingested")
 
     # ---------------------------------------------------------
     # 3. DEFINE OPENAI MODEL (GPT-4o-mini)
     # ---------------------------------------------------------
-    llm = ChatOpenAI(
-        model=openai_model,
-        temperature=0.1,
-        max_tokens=256
-    )
+    llm = ChatOpenAI(model=openai_model, temperature=0.1, max_tokens=256)
 
     # ---------------------------------------------------------
     # 4. BASIC RETRIEVAL QA
@@ -77,16 +74,16 @@ def main():
         llm=llm,
         chain_type="stuff",
         retriever=docsearch.as_retriever(),
-        return_source_documents=False
+        return_source_documents=False,
     )
 
     print("\n--- Basic Query ---")
     query_basic = "What is the total amount of the receipt?"
-    print(qa_basic.invoke(query_basic)['result'])
+    print(qa_basic.invoke(query_basic)["result"])
 
     print("\n--- Summarization Query ---")
     query_summary = "List all the items ordered."
-    print(qa_basic.invoke(query_summary)['result'])
+    print(qa_basic.invoke(query_summary)["result"])
 
     # ---------------------------------------------------------
     # 5. CUSTOM PROMPT
@@ -101,8 +98,7 @@ the question at the end.
     """
 
     prompt = PromptTemplate(
-        template=custom_prompt_template,
-        input_variables=["context", "question"]
+        template=custom_prompt_template, input_variables=["context", "question"]
     )
 
     chain_type_kwargs = {"prompt": prompt}
@@ -112,27 +108,24 @@ the question at the end.
         chain_type="stuff",
         retriever=docsearch.as_retriever(),
         chain_type_kwargs=chain_type_kwargs,
-        return_source_documents=False
+        return_source_documents=False,
     )
 
     print("\n--- Custom Prompt Query ---")
     query_custom = "What is the name of the restaurant?"
-    print(qa_custom.invoke(query_custom)['result'])
+    print(qa_custom.invoke(query_custom)["result"])
 
     # ---------------------------------------------------------
     # 6. CONVERSATIONAL CHAIN WITH BUILT-IN MEMORY
     # ---------------------------------------------------------
-    memory = ConversationBufferMemory(
-        memory_key="chat_history",
-        return_messages=True
-    )
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
     qa_chat = ConversationalRetrievalChain.from_llm(
         llm=llm,
         chain_type="stuff",
         retriever=docsearch.as_retriever(),
         memory=memory,
-        return_source_documents=False
+        return_source_documents=False,
     )
 
     print("\n--- Chat Loop (Type 'quit' to exit) ---")

@@ -9,11 +9,13 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
+
 # pylint: disable=no-name-in-module
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 from .config import settings
 
@@ -25,7 +27,7 @@ llm = ChatOpenAI(
     model=settings.OPENAI_MODEL_NAME,
     temperature=0.3,  # Slightly creative but focused
     max_tokens=256,
-    api_key=settings.OPENAI_API_KEY
+    api_key=SecretStr(settings.OPENAI_API_KEY),
 )
 
 # Custom Prompt
@@ -49,8 +51,7 @@ Question:
 Answer:"""
 
 QA_PROMPT = PromptTemplate(
-    template=CUSTOM_TEMPLATE,
-    input_variables=["context", "question"]
+    template=CUSTOM_TEMPLATE, input_variables=["context", "question"]
 )
 
 
@@ -59,6 +60,7 @@ class RAGService:
     Service class for RAG operations.
     Manages user sessions, document processing, and query retrieval.
     """
+
     def __init__(self):
         # In-memory session storage (simple map for now)
         # Session ID -> {'vector_store': Chroma, 'memory': Memory}
@@ -78,7 +80,9 @@ class RAGService:
         documents = loader.load()
 
         # 2. Split
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000, chunk_overlap=100
+        )
         texts = text_splitter.split_documents(documents)
 
         if not texts:
@@ -99,7 +103,7 @@ class RAGService:
         self.sessions[session_id]["memory"] = ConversationBufferMemory(
             memory_key="chat_history",
             return_messages=True,
-            output_key='answer'  # Important for some chains
+            output_key="answer",  # Important for some chains
         )
 
     def get_answer(self, session_id: str, query: str) -> str:
@@ -113,7 +117,10 @@ class RAGService:
         Returns:
             str: The generated answer from the LLM.
         """
-        if session_id not in self.sessions or "vector_store" not in self.sessions[session_id]:
+        if (
+            session_id not in self.sessions
+            or "vector_store" not in self.sessions[session_id]
+        ):
             return "Please upload a PDF file first."
 
         session_data = self.sessions[session_id]
@@ -126,7 +133,7 @@ class RAGService:
             retriever=vector_store.as_retriever(),
             memory=memory,
             return_source_documents=False,
-            combine_docs_chain_kwargs={"prompt": QA_PROMPT}
+            combine_docs_chain_kwargs={"prompt": QA_PROMPT},
         )
 
         result = qa_chain.invoke({"question": query})

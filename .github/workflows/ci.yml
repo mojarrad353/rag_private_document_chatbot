@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -30,17 +30,26 @@ jobs:
         run: |
           uv sync --all-extras --dev
 
+      - name: Run Black Check
+        run: uv run black --check .
+
       - name: Run Pylint
         run: |
-          uv run pylint src || true  # Don't fail the build on pylint errors for now, just report them
+          uv run pylint src || true
 
-      - name: Run Tests
+      - name: Run Mypy
+        run: uv run mypy .
+
+      - name: Run Bandit
+        run: uv run bandit -r src
+
+      - name: Run Tests with Coverage
         env:
           OPENAI_API_KEY: "dummy-key-for-ci"
         run: |
           # Check if tests directory exists before running pytest
           if [ -d "tests" ]; then
-            uv run pytest tests
+            uv run pytest # coverage options are in pyproject.toml
           else
             echo "No tests directory found, skipping tests"
           fi
