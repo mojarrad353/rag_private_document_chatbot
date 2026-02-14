@@ -61,7 +61,7 @@ class RAGService:
     Manages user sessions, document processing, and query retrieval.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # In-memory session storage (simple map for now)
         # Session ID -> {'vector_store': Chroma, 'memory': Memory}
         self.sessions: Dict[str, Dict[str, Any]] = {}

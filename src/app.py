@@ -9,8 +9,6 @@ from .config import settings
 from .rag import rag_service
 
 # Initialize Flask App
-# We need to specify template folder because we moved app.py inside a package
-# Assuming templates is in the same directory as this file
 app = Flask(__name__, template_folder="templates")
 
 
@@ -84,6 +82,9 @@ def chat():
         return jsonify({"error": "An error occurred processing your request."}), 500
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     print("Starting Flask Server...")
-    app.run(debug=True, port=5000)
+    # Fix Bandit B201: Do not hardcode debug=True in production
+    # Use environment variable FLASK_DEBUG, default to False
+    debug_mode = os.getenv("FLASK_DEBUG", "False").lower() == "true"
+    app.run(debug=debug_mode, port=5000)
