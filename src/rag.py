@@ -15,7 +15,7 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
+from langchain_core.pydantic_v1 import SecretStr
 
 from .config import settings
 
@@ -137,7 +137,7 @@ class RAGService:
         )
 
         result = qa_chain.invoke({"question": query})
-        return result["answer"]
+        return str(result["answer"])
 
     def clear_session(self, session_id: str):
         """Clears the session data for a given session ID."""
