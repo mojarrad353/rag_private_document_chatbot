@@ -73,7 +73,8 @@
         formData.append('file', file);
         formData.append('session_id', sessionId);
 
-        statusMsg.innerText = "Processing file... please wait.";
+        statusMsg.innerText = "Uploading file...";
+        statusMsg.style.color = "#666";
         uploadBtn.disabled = true;
 
         try {
@@ -84,24 +85,57 @@
 
             const result = await response.json();
             
-            if (response.ok) {
-                statusMsg.innerText = "File uploaded! You can now chat.";
-                statusMsg.style.color = "green";
-                
-                // Enable Chat Controls
-                document.getElementById('user-input').disabled = false;
-                document.getElementById('send-btn').disabled = false;
-                addMessage("I have read the document. What would you like to know?", 'bot-message');
+            if (response.ok && result.task_id) {
+                statusMsg.innerText = "Processing PDF... this may take a moment.";
+                statusMsg.style.color = "#e67e22";
+                // Poll for task completion
+                pollTaskStatus(result.task_id);
             } else {
-                statusMsg.innerText = "Error: " + result.error;
+                statusMsg.innerText = "Error: " + (result.error || "Upload failed");
                 statusMsg.style.color = "red";
                 uploadBtn.disabled = false;
             }
         } catch (error) {
             console.error(error);
-            statusMsg.innerText = "Upload failed.";
+            statusMsg.innerText = "Upload failed. Please try again.";
+            statusMsg.style.color = "red";
             uploadBtn.disabled = false;
         }
+    }
+
+    function pollTaskStatus(taskId) {
+        const statusMsg = document.getElementById('status-msg');
+        const uploadBtn = document.getElementById('upload-btn');
+
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(`/status/${taskId}`);
+                const data = await res.json();
+
+                if (data.state === 'SUCCESS') {
+                    clearInterval(interval);
+                    statusMsg.innerText = "✅ File ready! You can now chat.";
+                    statusMsg.style.color = "green";
+                    document.getElementById('user-input').disabled = false;
+                    document.getElementById('send-btn').disabled = false;
+                    document.getElementById('user-input').focus();
+                    addMessage("I have read the document. What would you like to know?", 'bot-message');
+                } else if (data.state === 'FAILURE') {
+                    clearInterval(interval);
+                    statusMsg.innerText = "❌ Processing failed: " + (data.status || "Unknown error");
+                    statusMsg.style.color = "red";
+                    uploadBtn.disabled = false;
+                } else {
+                    // Still processing (PENDING / STARTED)
+                    statusMsg.innerText = "⏳ Processing PDF... please wait.";
+                }
+            } catch (err) {
+                clearInterval(interval);
+                statusMsg.innerText = "❌ Could not check status.";
+                statusMsg.style.color = "red";
+                uploadBtn.disabled = false;
+            }
+        }, 2000); // Poll every 2 seconds
     }
 
     async function sendMessage() {

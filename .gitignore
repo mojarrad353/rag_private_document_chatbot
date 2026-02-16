@@ -14,7 +14,7 @@ __pycache__
 __pycache__/
 *.pyc
 *.pyo
-*.pyd   
+*.pyd
 *.pdb
 *.egg
 *.egg-info/
@@ -29,4 +29,11 @@ develop-eggs/
 .installed.cfg
 *.log
 pip-log.txt
-pip-delete-this-directory.txt       
+pip-delete-this-directory.txt
+
+# Runtime data
+chroma_db/
+uploads/
+.coverage
+.mypy_cache/
+.pytest_cache/

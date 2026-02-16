@@ -50,31 +50,36 @@ def test_upload_file_missing_session_id(mock_rag, client):
     assert b"Session ID missing" in response.data
 
 
-@patch("src.app.rag_service")
-@patch("os.remove")
+@patch("src.app.process_file_task")
 @patch("os.path.exists")
-def test_upload_file_success(mock_exists, mock_remove, mock_rag, client):
-    """Test successful file upload."""
+def test_upload_file_success(mock_exists, mock_task, client):
+    """Test successful file upload triggers async task."""
     mock_exists.return_value = True
+    mock_result = MagicMock()
+    mock_result.id = "test-task-123"
+    mock_task.delay.return_value = mock_result
+
     data = {"file": (io.BytesIO(b"content"), "test.pdf"), "session_id": "test_session"}
 
-    response = client.post("/upload", data=data, content_type="multipart/form-data")
+    with patch("werkzeug.datastructures.FileStorage.save"):
+        response = client.post("/upload", data=data, content_type="multipart/form-data")
 
-    assert response.status_code == 200
-    assert b"File processed successfully" in response.data
-    mock_rag.process_file.assert_called_once()
+    assert response.status_code == 202
+    assert response.json["task_id"] == "test-task-123"
+    mock_task.delay.assert_called_once()
 
 
-@patch("src.app.rag_service")
-def test_upload_file_exception(mock_rag, client):
-    """Test exception during file processing."""
-    mock_rag.process_file.side_effect = Exception("Processing error")
+@patch("src.app.process_file_task")
+def test_upload_file_exception(mock_task, client):
+    """Test exception during file processing startup."""
+    mock_task.delay.side_effect = Exception("Queue error")
     data = {"file": (io.BytesIO(b"content"), "test.pdf"), "session_id": "test_session"}
 
-    response = client.post("/upload", data=data, content_type="multipart/form-data")
+    with patch("werkzeug.datastructures.FileStorage.save"):
+        response = client.post("/upload", data=data, content_type="multipart/form-data")
 
     assert response.status_code == 500
-    assert b"Failed to process file" in response.data
+    assert b"Failed to start processing" in response.data
 
 
 @patch("src.app.rag_service")
