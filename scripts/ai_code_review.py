@@ -41,17 +41,27 @@ File: {filename}
 def get_changed_files() -> list[str]:
     """Get list of changed Python files compared to the base branch."""
     base_ref = os.getenv("GITHUB_BASE_REF", "main")
+    print(f"DEBUG: Base ref is: {base_ref}")
+    
+    command = ["git", "diff", "--name-only", f"origin/{base_ref}...HEAD", "--", "*.py"]
+    print(f"DEBUG: Running command: {' '.join(command)}")
+
     try:
         result = subprocess.run(
-            ["git", "diff", "--name-only", f"origin/{base_ref}...HEAD", "--", "*.py"],
+            command,
             capture_output=True,
             text=True,
             check=True,
         )
+        print(f"DEBUG: Raw git diff output:\n{result.stdout}")
+        
         files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
         # Filter to only existing files (exclude deleted)
-        return [f for f in files if os.path.exists(f)]
-    except subprocess.CalledProcessError:
+        existing_files = [f for f in files if os.path.exists(f)]
+        print(f"DEBUG: Files after existence check: {existing_files}")
+        return existing_files
+    except subprocess.CalledProcessError as e:
+        print(f"Error running git diff: {e.stderr}")
         print("Warning: Could not get diff, falling back to all Python files in src/")
         result = subprocess.run(
             ["find", "src", "-name", "*.py", "-type", "f"],
