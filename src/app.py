@@ -28,7 +28,7 @@ from .logging_config import configure_logging
 configure_logging()
 logger = structlog.get_logger()
 
-# Initialize Flask App
+# Initialize Flask Application
 app = Flask(__name__, template_folder="templates")
 
 # Security Headers
