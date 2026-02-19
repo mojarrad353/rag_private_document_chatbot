@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AI-powered code review script using OpenAI.
+AI-powered code review script using OpenAI GPT-5-mini.
 
 This script reviews changed Python files in a PR and posts
 feedback as a GitHub PR comment. It is designed to be run
