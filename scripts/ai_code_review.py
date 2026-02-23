@@ -15,19 +15,73 @@ from openai import OpenAI
 REVIEW_PROMPT = """You are an expert code reviewer. Analyze the following code diff \
 from a pull request and provide a constructive review.
 
-Focus on:
-1. **Bugs & Logic Errors** – potential bugs, off-by-one errors, race conditions
-2. **Security** – vulnerabilities, hardcoded secrets, injection risks
-3. **Performance** – inefficiencies, unnecessary allocations, N+1 queries
-4. **Readability & Maintainability** – naming, complexity, missing docs
-5. **Best Practices** – design patterns, error handling, testing gaps
+The following tools have ALREADY been executed successfully in CI:
+- mypy (type checking)
+- black (formatting)
+- pylint (linting & style)
+- bandit (security static analysis)
+- pytest (unit tests)
+- pytest with coverage enforcement
 
-For each issue found, indicate its severity (🔴 Critical, 🟡 Warning, 🔵 Suggestion).
+DO NOT:
+- Comment on formatting
+- Comment on type annotations completeness
+- Report linting/style issues
+- Report common static security warnings
+- Suggest adding docstrings unless critical
+- Suggest adding basic tests
+- Suggest increasing coverage
+- Repeat what these tools already validate
 
-If the code looks good, say so! Not every diff has problems.
+Instead, focus ONLY on:
+- Logical bugs
+- Hidden edge cases
+- Architectural concerns
+- Real-world security risks beyond static scanning
+- Performance risks
+- Concurrency issues
+- Data consistency issues
+- Transaction boundaries
+- Misuse of frameworks/libraries
+- API contract breaks
+- Maintainability risks at scale
+
+Please provide:
+
+1. 🚨 Critical Issues
+   - Bugs
+   - Security vulnerabilities
+   - Data corruption risks
+   - Breaking changes
+
+2. ⚠️ Major Concerns
+   - Performance problems
+   - Architectural violations
+   - Scalability risks
+   - Risky assumptions
+
+3. 🧠 Design & Maintainability Risks
+   - Tight coupling
+   - Hidden side effects
+   - Poor separation of concerns
+   - Long-term maintainability issues
+
+4. 🧪 Test Logic Gaps (NOT coverage issues)
+   - Missing edge-case logic validation
+   - Incorrect assertions
+   - Flaky test risk
+
+5. ✅ Positive Observations (if any)
+
+Rules:
+- If no issues are found in a category, explicitly state: "No issues found."
+- Reference file names and functions where possible.
+- Be concise but specific.
+- Do NOT rewrite the entire code.
+- Do NOT restate the diff.
+- Do NOT provide generic best practices.
 
 Respond in well-structured Markdown suitable for a GitHub comment.
-Start your review with a one-line summary, then list findings grouped by file.
 
 Here is the diff:
 
@@ -63,7 +117,10 @@ def review_diff(diff: str, openai_api_key: str) -> str:
         messages=[
             {
                 "role": "system",
-                "content": "You are a helpful, senior software engineer performing code reviews.",
+                "content": """You are a senior software engineer performing a strict, production-level code review. 
+                Your role is to identify high-value issues that automated linters and static analysis tools typically miss. 
+                Be precise, technical, and concise. Do not explain basic programming concepts. Do not provide generic advice. 
+                Focus only on meaningful, non-trivial issues.""",
             },
             {"role": "user", "content": REVIEW_PROMPT.format(diff=diff)},
         ],
@@ -78,7 +135,9 @@ def review_diff(diff: str, openai_api_key: str) -> str:
 
     content = choice.message.content
     if not content or not content.strip():
-        return "⚠️ The AI model returned an empty review. This may be a transient issue."
+        return (
+            "⚠️ The AI model returned an empty review. This may be a transient issue."
+        )
     return content
 
 
