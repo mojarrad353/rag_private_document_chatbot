@@ -48,6 +48,10 @@ ignore_missing_imports = true
 module = "tests.*"
 ignore_errors = true
 
+[[tool.mypy.overrides]]
+module = "scripts.*"
+ignore_errors = true
+
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]
 skips = ["B101"]

@@ -69,7 +69,17 @@ def review_diff(diff: str, openai_api_key: str) -> str:
         ],
         max_completion_tokens=4096,
     )
-    return response.choices[0].message.content
+
+    choice = response.choices[0]
+    print(f"📊 API response - finish_reason: {choice.finish_reason}")
+    print(f"📊 Content present: {choice.message.content is not None}")
+    if hasattr(choice.message, "refusal") and choice.message.refusal:
+        print(f"⚠️ Model refusal: {choice.message.refusal}")
+
+    content = choice.message.content
+    if not content or not content.strip():
+        return "⚠️ The AI model returned an empty review. This may be a transient issue."
+    return content
 
 
 def post_pr_comment(repo: str, pr_number: str, token: str, body: str) -> None:
@@ -96,6 +106,12 @@ def main() -> None:
     if not all([github_token, openai_api_key, github_event_path, github_repository]):
         print("❌ Missing required environment variables.")
         sys.exit(1)
+
+    # Assert to narrow types for mypy after the None check above
+    assert github_token is not None
+    assert openai_api_key is not None
+    assert github_event_path is not None
+    assert github_repository is not None
 
     # Parse the PR number from the GitHub event payload
     with open(github_event_path, "r", encoding="utf-8") as f:
