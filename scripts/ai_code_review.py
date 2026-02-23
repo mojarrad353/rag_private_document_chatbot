@@ -67,7 +67,6 @@ def review_diff(diff: str, openai_api_key: str) -> str:
             },
             {"role": "user", "content": REVIEW_PROMPT.format(diff=diff)},
         ],
-        temperature=0.2,
         max_completion_tokens=4096,
     )
     return response.choices[0].message.content
