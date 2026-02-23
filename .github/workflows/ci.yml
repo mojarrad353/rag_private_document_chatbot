@@ -74,18 +74,20 @@ jobs:
     continue-on-error: true
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install openai requests
-
-      - name: Run AI Code Review
+      - uses: anc95/ChatGPT-CodeReview@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python scripts/ai_code_review.py
+          OPENAI_API_ENDPOINT: https://api.openai.com/v1
+          MODEL: gpt-5-mini
+          LANGUAGE: English
+          PROMPT: |
+            Please review the code changes in this pull request.
+            Focus on logical bugs, edge cases, security risks,
+            performance issues, and architectural concerns.
+            Do not comment on formatting or style issues as
+            those are already handled by automated linters.
+          top_p: 1
+          temperature: 1
+          max_tokens: 4096
+          MAX_PATCH_LENGTH: 10000
