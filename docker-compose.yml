@@ -1,7 +1,7 @@
 services:
   app:
     build: .
-    command: gunicorn --bind 0.0.0.0:5000 --reload --timeout 120 src.app:app
+    command: sh -c "uv sync && gunicorn --bind 0.0.0.0:5000 --reload --timeout 120 src.app:app"
     ports:
       - "5000:5000"
     environment:
@@ -15,6 +15,15 @@ services:
       - ./src:/app/src
       - ./uploads:/app/uploads
       - ./chroma_db:/app/chroma_db
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: pyproject.toml
     depends_on:
       - redis
     healthcheck:
@@ -61,7 +70,7 @@ services:
   worker:
     build: .
     container_name: worker
-    command: celery -A src.celery_app.celery_app worker --loglevel=info
+    command: sh -c "uv sync && celery -A src.celery_app.celery_app worker --loglevel=info"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL_NAME=${OPENAI_MODEL_NAME:-gpt-5-mini}
@@ -73,15 +82,24 @@ services:
       - ./src:/app/src
       - ./uploads:/app/uploads
       - ./chroma_db:/app/chroma_db
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: pyproject.toml
     depends_on:
       - redis
       - app
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
+      test: [ "CMD-SHELL", "celery -A src.celery_app.celery_app inspect ping" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
 
   nginx:
     image: nginx:alpine

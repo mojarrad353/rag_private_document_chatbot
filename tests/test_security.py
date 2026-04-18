@@ -21,7 +21,7 @@ def test_security_headers(client):
     assert "X-Frame-Options" in response.headers
 
 
-@patch("src.app.process_file_task")
+@patch("src.app.process_files_batch_task")
 def test_filename_sanitization(mock_task, client):
     """Test that filenames are sanitized and saved correctly."""
     # Mock task return
@@ -51,5 +51,6 @@ def test_filename_sanitization(mock_task, client):
 
         # Verify the async task received the sanitized path
         task_args, _ = mock_task.delay.call_args
-        processed_path = task_args[1]
-        assert processed_path == saved_path
+        # task_args[0] is session_id, task_args[1] is [filepaths]
+        processed_paths = task_args[1]
+        assert saved_path in processed_paths

@@ -38,7 +38,7 @@ def test_upload_file_no_selected_file(mock_rag, client):
     data = {"file": (io.BytesIO(b""), ""), "session_id": "test_session"}
     response = client.post("/upload", data=data, content_type="multipart/form-data")
     assert response.status_code == 400
-    assert b"No selected file" in response.data
+    assert b"No selected files" in response.data
 
 
 @patch("src.app.rag_service")
@@ -50,7 +50,7 @@ def test_upload_file_missing_session_id(mock_rag, client):
     assert b"Session ID missing" in response.data
 
 
-@patch("src.app.process_file_task")
+@patch("src.app.process_files_batch_task")
 @patch("os.path.exists")
 def test_upload_file_success(mock_exists, mock_task, client):
     """Test successful file upload triggers async task."""
@@ -65,11 +65,11 @@ def test_upload_file_success(mock_exists, mock_task, client):
         response = client.post("/upload", data=data, content_type="multipart/form-data")
 
     assert response.status_code == 202
-    assert response.json["task_id"] == "test-task-123"
+    assert response.json["task_ids"] == ["test-task-123"]
     mock_task.delay.assert_called_once()
 
 
-@patch("src.app.process_file_task")
+@patch("src.app.process_files_batch_task")
 def test_upload_file_exception(mock_task, client):
     """Test exception during file processing startup."""
     mock_task.delay.side_effect = Exception("Queue error")

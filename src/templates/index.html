@@ -39,13 +39,13 @@
     <div class="header"><h3>Private Document Chatbot</h3></div>
     
     <div class="upload-area">
-        <input type="file" id="pdf-file" accept=".pdf">
-        <button class="upload-btn" onclick="uploadFile()" id="upload-btn">Upload PDF</button>
+        <input type="file" id="pdf-file" accept=".pdf" multiple>
+        <button class="upload-btn" onclick="uploadFiles()" id="upload-btn">Upload PDFs</button>
     </div>
     <div class="status" id="status-msg"></div>
 
     <div class="chat-box" id="chat-box">
-        <div class="message bot-message">Please upload a PDF document to start chatting.</div>
+        <div class="message bot-message">Please upload one or more PDF documents to start chatting.</div>
     </div>
 
     <div class="input-area">
@@ -58,22 +58,24 @@
     // Generate a unique session ID for this browser tab
     const sessionId = Math.random().toString(36).substring(7);
 
-    async function uploadFile() {
+    async function uploadFiles() {
         const fileInput = document.getElementById('pdf-file');
-        const file = fileInput.files[0];
+        const files = fileInput.files;
         const statusMsg = document.getElementById('status-msg');
         const uploadBtn = document.getElementById('upload-btn');
 
-        if (!file) {
-            alert("Please select a file first.");
+        if (files.length === 0) {
+            alert("Please select at least one file first.");
             return;
         }
 
         const formData = new FormData();
-        formData.append('file', file);
+        for (let i = 0; i < files.length; i++) {
+            formData.append('file', files[i]);
+        }
         formData.append('session_id', sessionId);
 
-        statusMsg.innerText = "Uploading file...";
+        statusMsg.innerText = `Uploading ${files.length} file(s)...`;
         statusMsg.style.color = "#666";
         uploadBtn.disabled = true;
 
@@ -85,11 +87,12 @@
 
             const result = await response.json();
             
-            if (response.ok && result.task_id) {
-                statusMsg.innerText = "Processing PDF... this may take a moment.";
+            if (response.ok && result.task_ids) {
+                const fileCount = result.file_count || files.length;
+                statusMsg.innerText = `Processing ${fileCount} files... please wait.`;
                 statusMsg.style.color = "#e67e22";
                 // Poll for task completion
-                pollTaskStatus(result.task_id);
+                pollTasksStatus(result.task_ids, fileCount);
             } else {
                 statusMsg.innerText = "Error: " + (result.error || "Upload failed");
                 statusMsg.style.color = "red";
@@ -103,39 +106,53 @@
         }
     }
 
-    function pollTaskStatus(taskId) {
+    function pollTasksStatus(taskIds, fileCount) {
         const statusMsg = document.getElementById('status-msg');
         const uploadBtn = document.getElementById('upload-btn');
+        let completedTasks = new Set();
+        let failed = false;
 
         const interval = setInterval(async () => {
-            try {
-                const res = await fetch(`/status/${taskId}`);
-                const data = await res.json();
+            if (failed) {
+                clearInterval(interval);
+                return;
+            }
 
-                if (data.state === 'SUCCESS') {
+            try {
+                for (const taskId of taskIds) {
+                    if (completedTasks.has(taskId)) continue;
+
+                    const res = await fetch(`/status/${taskId}`);
+                    const data = await res.json();
+
+                    if (data.state === 'SUCCESS') {
+                        completedTasks.add(taskId);
+                    } else if (data.state === 'FAILURE') {
+                        failed = true;
+                        clearInterval(interval);
+                        statusMsg.innerText = `❌ Processing failed for a document: ${data.status || "Unknown error"}`;
+                        statusMsg.style.color = "red";
+                        uploadBtn.disabled = false;
+                        return;
+                    }
+                }
+
+                if (completedTasks.size === taskIds.length) {
                     clearInterval(interval);
-                    statusMsg.innerText = "✅ File ready! You can now chat.";
+                    statusMsg.innerText = `✅ All ${fileCount} files ready! You can now chat.`;
                     statusMsg.style.color = "green";
                     document.getElementById('user-input').disabled = false;
                     document.getElementById('send-btn').disabled = false;
                     document.getElementById('user-input').focus();
-                    addMessage("I have read the document. What would you like to know?", 'bot-message');
-                } else if (data.state === 'FAILURE') {
-                    clearInterval(interval);
-                    statusMsg.innerText = "❌ Processing failed: " + (data.status || "Unknown error");
-                    statusMsg.style.color = "red";
-                    uploadBtn.disabled = false;
+                    addMessage(`I have read ${fileCount} documents. I will provide citations in my answers. What would you like to know?`, 'bot-message');
                 } else {
-                    // Still processing (PENDING / STARTED)
-                    statusMsg.innerText = "⏳ Processing PDF... please wait.";
+                    statusMsg.innerText = `⏳ Processing documents (${completedTasks.size}/${taskIds.length})... please wait.`;
                 }
             } catch (err) {
-                clearInterval(interval);
-                statusMsg.innerText = "❌ Could not check status.";
-                statusMsg.style.color = "red";
-                uploadBtn.disabled = false;
+                console.error(err);
+                // We'll retry on the next interval
             }
-        }, 2000); // Poll every 2 seconds
+        }, 2000);
     }
 
     async function sendMessage() {
@@ -162,10 +179,13 @@
             const data = await response.json();
             
             // 3. Show Bot Response
-            if (data.answer) {
-                addMessage(data.answer, 'bot-message');
+            if (data.answer !== undefined) {
+                const botAnswer = data.answer || "I'm sorry, I couldn't generate an answer based on the document.";
+                addMessage(botAnswer, 'bot-message');
+            } else if (data.error) {
+                addMessage("Error: " + data.error, 'bot-message');
             } else {
-                addMessage(data.answer || "Error occurred", 'bot-message');
+                addMessage("An unknown error occurred on the server.", 'bot-message');
             }
 
         } catch (error) {

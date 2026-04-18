@@ -21,7 +21,7 @@ if settings.LANGCHAIN_TRACING_V2:
         os.environ["LANGCHAIN_API_KEY"] = settings.LANGCHAIN_API_KEY
 
 from .rag import rag_service
-from .tasks import process_file_task
+from .tasks import process_files_batch_task
 from .logging_config import configure_logging
 
 # Configure Logging
@@ -36,7 +36,7 @@ from flask_talisman import Talisman
 
 csp = {
     "default-src": "'self'",
-    "script-src": "'self' 'unsafe-inline'",  # Be careful with unsafe-inline
+    "script-src": "'self' 'unsafe-inline'",
     "style-src": "'self' 'unsafe-inline'",
 }
 Talisman(
@@ -83,43 +83,62 @@ def health_check():
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
-    """Handles PDF upload and processes it for the specific session."""
+    """Handles multiple PDF uploads and processes them for the specific session."""
     if "file" not in request.files:
         logger.warning("upload_failed", reason="no_file_part")
         return jsonify({"error": "No file part"}), 400
 
-    file = request.files["file"]
+    files = request.files.getlist("file")
     session_id = request.form.get("session_id")
 
     if not session_id:
         logger.warning("upload_failed", reason="missing_session_id")
         return jsonify({"error": "Session ID missing"}), 400
 
-    if file.filename == "":
-        logger.warning("upload_failed", reason="no_selected_file")
-        return jsonify({"error": "No selected file"}), 400
+    if not files or all(f.filename == "" for f in files):
+        logger.warning("upload_failed", reason="no_selected_files")
+        return jsonify({"error": "No selected files"}), 400
 
-    if file:
-        try:
-            # Save File Temporarily
-            original_filename = secure_filename(file.filename)
-            filepath = os.path.join(
-                settings.UPLOAD_FOLDER, f"{session_id}_{original_filename}"
-            )
-            file.save(filepath)
+    filepaths = []
+    try:
+        for file in files:
+            if file and file.filename:
+                # Save File Temporarily
+                original_filename = secure_filename(file.filename)
+                unique_id = uuid.uuid4().hex[:8]
+                filepath = os.path.join(
+                    settings.UPLOAD_FOLDER,
+                    f"{session_id}_{unique_id}_{original_filename}",
+                )
+                file.save(filepath)
+                filepaths.append(filepath)
 
-            # Trigger Async Task
-            task = process_file_task.delay(session_id, filepath)
+        if not filepaths:
+            return jsonify({"error": "No valid files uploaded"}), 400
 
-            logger.info("async_task_started", task_id=task.id, session_id=session_id)
-            return (
-                jsonify({"message": "File processing started", "task_id": task.id}),
-                202,
-            )
+        # Trigger Single Async Batch Task
+        task = process_files_batch_task.delay(session_id, filepaths)
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.exception("processing_error", error=str(e), session_id=session_id)
-            return jsonify({"error": f"Failed to start processing: {str(e)}"}), 500
+        logger.info(
+            "batch_task_started",
+            task_id=task.id,
+            session_id=session_id,
+            file_count=len(filepaths),
+        )
+        return (
+            jsonify(
+                {
+                    "message": "Processing started",
+                    "task_ids": [task.id],
+                    "file_count": len(filepaths),
+                }
+            ),
+            202,
+        )
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.exception("processing_error", error=str(e), session_id=session_id)
+        return jsonify({"error": f"Failed to start processing: {str(e)}"}), 500
 
     return jsonify({"error": "Unknown error"}), 500
 
@@ -129,7 +148,7 @@ def task_status(task_id):
     """
     Checks the status of a background task.
     """
-    task = process_file_task.AsyncResult(task_id)
+    task = process_files_batch_task.AsyncResult(task_id)
     if task.state == "PENDING":
         response = {"state": task.state, "status": "Processing..."}
     elif task.state != "FAILURE":

@@ -10,10 +10,7 @@ def client():
         yield client
 
 
-@patch(
-    "src.app.process_file_task"
-)  # We can use this to get to celery_app via mock if needed, but easier to mock celery_app.control.ping
-def test_health_check_success(mock_task, client):
+def test_health_check_success(client):
     """Test health check returns 200 and healthy status."""
     with patch("src.celery_app.celery_app.control.ping") as mock_ping:
         mock_ping.return_value = ["pong"]

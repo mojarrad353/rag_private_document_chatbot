@@ -1,4 +1,4 @@
-# RAG Private Document Chatbot
+# Private Document Chatbot with Multi-Doc Graph RAG
 
 [![CI](https://github.com/mojarrad353/rag_private_document_chatbot/actions/workflows/ci.yml/badge.svg)]
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue?logo=python&logoColor=white)](https://www.python.org/downloads/)
@@ -10,180 +10,90 @@
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 
-A production-ready RAG (Retrieval-Augmented Generation) chatbot that allows users to upload PDF documents and chat with them using LLMs. Built with Flask, LangChain, ChromaDB, and OpenAI.
+A high-performance, private Retrieval-Augmented Generation (RAG) chatbot designed for secure document interaction. This application uses a sophisticated **Map-Reduce Parallel Retrieval** architecture powered by **LangGraph** to concurrently query multiple documents and provide contextually accurate answers.
 
-## Architecture
+## 🚀 Key Features
 
-```
-User → Nginx (port 80) → Gunicorn/Flask (port 5000) → Celery Worker → Redis
-                                  ↓                          ↓
-                              ChromaDB                   OpenAI API
-                           (persistent)
-```
+- **Multi-Document Support**: Upload and chat with multiple PDF files simultaneously.
+- **Graph RAG Orchestration**: Built with **LangGraph** to handle complex, parallel retrieval branches (Map-Reduce pattern).
+- **Asynchronous Processing**: Background file indexing using **Celery** and **Redis** to ensure a responsive UI.
+- **State-of-the-Art Retrieval**: Uses **PyMuPDF** for high-fidelity extraction and **ChromaDB** for vector storage.
+- **Production-Ready Observability**: Full integration with the Prometheus/Grafana/Loki stack and LangSmith for real-time monitoring.
+- **Robust Security**: Includes filename sanitization, secure headers (Talisman), and Nginx reverse proxying.
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| **Nginx** | 80 | Reverse proxy, rate limiting |
-| **Flask App** | 5000 | Web UI + API |
-| **Celery Worker** | — | Background PDF processing |
-| **Redis** | 6379 | Task queue + chat history |
-| **Prometheus** | 9090 | Metrics collection |
-| **Grafana** | 3000 | Dashboards + log explorer |
-| **Loki** | 3100 | Centralized log storage |
-| **Promtail** | — | Log shipping from containers |
+## 🛠 Technology Stack
 
-## Features
+- **AI/LLM**: LangChain, LangGraph, OpenAI (GPT-4o-mini), HuggingFace (Local Embeddings).
+- **Backend**: Flask (Python 3.12), Gunicorn, Celery.
+- **Data Layers**: ChromaDB (Vector Store), Redis (Task Queue & Chat History).
+- **Infrastructure**: Docker Compose, Nginx (Reverse Proxy).
+- **Observability**: Prometheus, Grafana, Loki, Promtail, Structlog, LangSmith.
 
-- **Document Ingestion**: Upload PDFs → automatic splitting, embedding, and indexing.
-- **RAG Architecture**: Persistent ChromaDB for vector storage, OpenAI for generation, Redis for chat memory.
-- **Async Processing**: File uploads processed in the background via **Celery** + **Redis**. Frontend polls for completion status.
-- **Shared Session State**: ChromaDB persisted to disk and chat history stored in Redis — state is shared across the Flask app and Celery worker.
-- **Observability**:
-  - **Structured Logging**: JSON logs via `structlog` with request-scoped tracing.
-  - **Centralized Logs**: **Grafana Loki** + **Promtail** — all container logs searchable in Grafana.
-  - **Metrics**: Prometheus metrics at `/metrics` (token usage, cost, latency).
-  - **Tracing**: Full LangChain tracing with **LangSmith**.
-- **Security**:
-  - Nginx reverse proxy with rate limiting.
-  - Security headers (HSTS, CSP, XSS) via `flask-talisman`.
-  - Non-root Docker container.
-  - Input filename sanitization.
-- **Health Checks**: Docker health probes + `/health` endpoint (app + Redis connectivity).
-- **Production Ready**: Gunicorn WSGI server, 120s timeout for model loading, hot-reload for development.
+## 📁 Project Structure 
 
-## Quick Start
-
-### 1. Clone & Configure
-
-```bash
-git clone https://github.com/mojarrad353/rag_private_document_chatbot.git
-cd rag_private_document_chatbot
+```text
+├── .github/workflows/  # CI/CD (linting, testing, security, code review)
+├── grafana/           # Grafana provisioning (dashboards & datasources)
+├── nginx/             # Nginx reverse proxy configuration
+├── scripts/           # Utility scripts (AI Code Review)
+├── src/               # Main application source code
+│   ├── app.py         # Flask API & Routes
+│   ├── rag.py         # Graph RAG logic & LLM orchestration
+│   ├── tasks.py       # Celery background tasks
+│   ├── celery_app.py  # Celery initialization
+│   ├── config.py      # Environment & Settings
+│   └── templates/     # UI template (index.html)
+├── tests/             # Comprehensive Pytest suite (91%+ coverage)
+├── docker-compose.yml # Full stack orchestration
+└── README.md          # You are here
 ```
 
-Create a `.env` file:
+## ⚙️ Setup & Installation
 
+### Prerequisites
+- Docker & Docker Compose
+- OpenAI API Key
+
+### 1. Configuration
+Create a `.env` file in the root directory:
 ```env
-OPENAI_API_KEY=your_openai_key
-
-# Optional: LangSmith Observability
-LANGSMITH_API_KEY=your_langsmith_key
+OPENAI_API_KEY=your_api_key_here
+OPENAI_MODEL_NAME=gpt-4o-mini
 ```
 
-### 2. Run
-
+### 2. Launch the Application
+Start the entire stack using Docker Compose:
 ```bash
 docker compose up -d
 ```
+The application will be available at [http://localhost](http://localhost).
 
-### 3. Use
+## 📊 Observability & Metrics
 
-| What | URL |
-|------|-----|
-| **Chat Interface** | [http://localhost](http://localhost) |
-| **Grafana** (metrics + logs) | [http://localhost:3000](http://localhost:3000) (admin/admin) |
-| **Prometheus** | [http://localhost:9090](http://localhost:9090) |
+The system is equipped with a full observability stack to monitor AI performance and operational health:
 
-### 4. Stop
+- **Grafana Dashboard**: Access at `http://localhost:3000` (Default: admin/admin).
+- **Prometheus Metrics**: Available at `/metrics` from the app container.
+- **Loki Logs**: Centralized structured logging for all services.
 
+### Tracked AI Metrics
+- **`rag_llm_calls_total`**: Total number of calls made to the LLM.
+- **`rag_tokens_total`**: Breakdown of tokens used (Prompt vs. Completion).
+- **`rag_cost_total`**: Real-time tracking of cumulative API costs in USD.
+
+## 🧪 Testing & Quality
+
+This project maintains high standards of code quality, enforced by GitHub Actions:
+
+- **Pytest**: Over **91.7% coverage** across the core RAG and Task logic.
+- **Pylint**: Adheres to strict coding standards (Score > 9.0).
+- **Mypy**: Full type-checking for static safety.
+- **Black**: Automatic code formatting.
+
+Run local tests with:
 ```bash
-docker compose down
+uv run pytest --cov=src
 ```
 
-## Local Development (Without Docker)
-
-1. **Start Redis**:
-   ```bash
-   docker run -d -p 6379:6379 redis:alpine
-   ```
-
-2. **Start Celery Worker**:
-   ```bash
-   uv run celery -A src.celery_app.celery_app worker --loglevel=info
-   ```
-
-3. **Start Flask App**:
-   ```bash
-   uv run flask --app src/app.py run --debug
-   ```
-
-> **Tip**: Source code is volume-mounted into Docker. After code changes, just run `docker compose restart app worker` — no rebuild needed.
-
-## Observability
-
-### Metrics
-
-Prometheus metrics at `http://localhost:5000/metrics`:
-
-| Metric | Description |
-|--------|-------------|
-| `rag_tokens_total{type="prompt\|completion"}` | Token usage counter |
-| `rag_cost_total` | Estimated cost in USD |
-| `process_cpu_seconds_total` | CPU usage |
-| `process_resident_memory_bytes` | Memory usage |
-
-### Centralized Logs (Loki)
-
-All container logs are collected by **Promtail** and shipped to **Loki**, queryable in Grafana.
-
-1. Open [Grafana → Explore](http://localhost:3000/explore)
-2. Select **Loki** as the data source
-3. Example queries:
-
-| Query | Shows |
-|-------|-------|
-| `{service="app"}` | All app logs |
-| `{service="worker"}` | Celery worker logs |
-| `{service="nginx"}` | Nginx access/error logs |
-| `{level="error"}` | All errors across services |
-| `{event="invoke_chain_complete"}` | RAG query completions |
-
-### LangSmith Tracing
-
-Set `LANGSMITH_API_KEY` in your `.env` file. Traces are sent to the `rag-private-document-chatbot` project in [LangSmith](https://smith.langchain.com/).
-
-### Health Checks
-
-- **Endpoint**: `http://localhost:5000/health` (checks Flask + Redis)
-- **Docker**: `docker ps` shows `healthy` / `unhealthy` status
-
-### Grafana Dashboard
-
-1. Open [Grafana](http://localhost:3000) → **Dashboards** → **Import**
-2. Upload `grafana_dashboard.json` from the project root
-3. View real-time request rate, latency, token usage, and cost
-
-## CI Pipeline
-
-Quality gates enforced on every push:
-
-| Check | Threshold |
-|-------|-----------|
-| **Pylint** | Score ≥ 9.0 |
-| **Test Coverage** | ≥ 85% |
-| **Black** | Formatting check |
-| **Mypy** | Type checking |
-| **Bandit** | Security scan |
-
-## Project Structure
-
-```
-├── src/
-│   ├── app.py              # Flask application + routes
-│   ├── rag.py              # RAG service (ChromaDB + LangChain)
-│   ├── tasks.py            # Celery async tasks
-│   ├── celery_app.py       # Celery configuration
-│   ├── config.py           # Pydantic settings
-│   ├── logging_config.py   # Structlog configuration
-│   └── templates/
-│       └── index.html      # Chat UI
-├── tests/                  # Unit tests (pytest)
-├── nginx/nginx.conf        # Nginx reverse proxy config
-├── prometheus.yml          # Prometheus scrape config
-├── loki-config.yml         # Loki server config
-├── promtail-config.yml     # Promtail log collection config
-├── grafana/provisioning/   # Auto-provisioned Grafana datasources
-├── grafana_dashboard.json  # Pre-built Grafana dashboard
-├── Dockerfile              # Multi-stage Docker build
-├── docker-compose.yml      # Full stack orchestration (8 services)
-└── pyproject.toml          # Dependencies + tool config
-```
+---
+*Built for security and scale.*

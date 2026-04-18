@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+.mypy_cache/
+chroma_db/
+uploads/
+.git/
+.github/
+.env
+Dockerfile
+docker-compose.yml
+node_modules/
+dist/
+build/

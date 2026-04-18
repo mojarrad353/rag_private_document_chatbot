@@ -6,21 +6,20 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 # Set working directory
 WORKDIR /app
 
+# Create a non-root user
+RUN useradd -m appuser
+
 # Copy dependency files
-COPY pyproject.toml uv.lock ./
+COPY --chown=appuser:appuser pyproject.toml uv.lock ./
 
 # Install dependencies
-RUN uv sync --frozen
+RUN uv sync --frozen && chown -R appuser:appuser /app/.venv
 
 # Install curl for healthcheck
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user
-RUN useradd -m appuser
-
 # Copy source code
-COPY src/ src/
-RUN chown -R appuser:appuser /app
+COPY --chown=appuser:appuser src/ src/
 
 # Set environment variables
 ENV PATH="/app/.venv/bin:$PATH"
