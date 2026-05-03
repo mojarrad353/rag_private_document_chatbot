@@ -34,10 +34,10 @@ logger = structlog.get_logger()
 app = Flask(__name__, template_folder="templates")
 
 # --- Upload Security Constraints ---
-MAX_REQUEST_SIZE = 5 * 1024 * 1024   # 5 MB total per request
-MAX_FILE_SIZE = 5 * 1024 * 1024      # 5 MB per individual file
-MAX_FILES_PER_REQUEST = 10           # Max number of files per upload
-PDF_MAGIC_BYTES = b"%PDF-"            # First 5 bytes of a valid PDF
+MAX_REQUEST_SIZE = 5 * 1024 * 1024  # 5 MB total per request
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB per individual file
+MAX_FILES_PER_REQUEST = 10  # Max number of files per upload
+PDF_MAGIC_BYTES = b"%PDF-"  # First 5 bytes of a valid PDF
 
 app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_SIZE
 
@@ -95,21 +95,30 @@ def validate_session_id(session_id: str) -> tuple | None:
 
     # 1. Format check — prevents path traversal characters (. / \)
     if not _SESSION_ID_PATTERN.match(session_id):
-        logger.warning("session_rejected", reason="invalid_format", session_id=session_id[:50])
+        logger.warning(
+            "session_rejected", reason="invalid_format", session_id=session_id[:50]
+        )
         return jsonify({"error": "Invalid session ID format"}), 400
 
     # 2. Path safety — resolved path must stay inside the expected directory
     chroma_base = os.path.realpath(settings.CHROMA_PERSIST_DIRECTORY)
     resolved = os.path.realpath(os.path.join(chroma_base, session_id))
     if not resolved.startswith(chroma_base + os.sep):
-        logger.warning("session_rejected", reason="path_traversal", session_id=session_id[:50])
+        logger.warning(
+            "session_rejected", reason="path_traversal", session_id=session_id[:50]
+        )
         return jsonify({"error": "Invalid session ID"}), 400
 
     # 3. Existence check — session must have been created via /session
     redis_client = _get_redis_client()
     if not redis_client.exists(f"session:{session_id}"):
-        logger.warning("session_rejected", reason="unknown_session", session_id=session_id[:50])
-        return jsonify({"error": "Unknown or expired session. Please refresh the page."}), 403
+        logger.warning(
+            "session_rejected", reason="unknown_session", session_id=session_id[:50]
+        )
+        return (
+            jsonify({"error": "Unknown or expired session. Please refresh the page."}),
+            403,
+        )
 
     return None
 
@@ -128,7 +137,14 @@ def create_session():
 def request_entity_too_large(error):
     """Handle uploads that exceed MAX_CONTENT_LENGTH."""
     logger.warning("upload_rejected", reason="request_too_large")
-    return jsonify({"error": f"Request too large. Maximum size is {MAX_REQUEST_SIZE // (1024 * 1024)} MB."}), 413
+    return (
+        jsonify(
+            {
+                "error": f"Request too large. Maximum size is {MAX_REQUEST_SIZE // (1024 * 1024)} MB."
+            }
+        ),
+        413,
+    )
 
 
 @app.route("/health")
@@ -174,7 +190,10 @@ def upload_file():
             reason="too_many_files",
             count=len(files),
         )
-        return jsonify({"error": f"Maximum {MAX_FILES_PER_REQUEST} files per upload."}), 400
+        return (
+            jsonify({"error": f"Maximum {MAX_FILES_PER_REQUEST} files per upload."}),
+            400,
+        )
 
     # --- Validate each file before saving anything ---
     for file in files:
@@ -188,12 +207,15 @@ def upload_file():
                 reason="invalid_extension",
                 filename=file.filename,
             )
-            return jsonify({"error": f"Only PDF files are allowed: {file.filename}"}), 400
+            return (
+                jsonify({"error": f"Only PDF files are allowed: {file.filename}"}),
+                400,
+            )
 
         # Check individual file size
         file.seek(0, 2)  # Seek to end
         file_size = file.tell()
-        file.seek(0)     # Reset to beginning
+        file.seek(0)  # Reset to beginning
         if file_size > MAX_FILE_SIZE:
             size_mb = MAX_FILE_SIZE // (1024 * 1024)
             logger.warning(
@@ -202,7 +224,12 @@ def upload_file():
                 filename=file.filename,
                 size=file_size,
             )
-            return jsonify({"error": f"File '{file.filename}' exceeds {size_mb} MB limit."}), 400
+            return (
+                jsonify(
+                    {"error": f"File '{file.filename}' exceeds {size_mb} MB limit."}
+                ),
+                400,
+            )
 
         # Validate PDF magic bytes (content-level check)
         header = file.read(5)
@@ -213,7 +240,10 @@ def upload_file():
                 reason="invalid_pdf_content",
                 filename=file.filename,
             )
-            return jsonify({"error": f"File '{file.filename}' is not a valid PDF."}), 400
+            return (
+                jsonify({"error": f"File '{file.filename}' is not a valid PDF."}),
+                400,
+            )
 
     # --- All validation passed — save files ---
     filepaths = []

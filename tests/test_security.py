@@ -65,4 +65,3 @@ def test_filename_sanitization_with_pdf_extension(mock_task, mock_validate, clie
         saved_path = args[0]
         assert "evil.pdf" in saved_path
         assert ".." not in saved_path
-
