@@ -2,8 +2,7 @@ services:
   app:
     build: .
     command: sh -c "uv sync && gunicorn --bind 0.0.0.0:5000 --reload --timeout 120 src.app:app"
-    ports:
-      - "5000:5000"
+    # No ports: exposed — only reachable via Nginx on the internal network
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL_NAME=${OPENAI_MODEL_NAME:-gpt-5-mini}
@@ -26,6 +25,8 @@ services:
           path: pyproject.toml
     depends_on:
       - redis
+    networks:
+      - internal
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
       interval: 30s
@@ -38,34 +39,38 @@ services:
     container_name: prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
+    # No ports: exposed — only reachable internally by Grafana
     depends_on:
       - app
+    networks:
+      - internal
 
   grafana:
     image: grafana/grafana
     container_name: grafana
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3001:3000"  # Localhost only — changed to 3001 to avoid conflicts
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:
       - prometheus
       - loki
+    networks:
+      - internal
 
   redis:
     image: redis:alpine
     container_name: redis
-    ports:
-      - "6379:6379"
+    # No ports: exposed — only reachable internally by app and worker
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
 
   worker:
     build: .
@@ -94,6 +99,8 @@ services:
     depends_on:
       - redis
       - app
+    networks:
+      - internal
     healthcheck:
       test: [ "CMD-SHELL", "celery -A src.celery_app.celery_app inspect ping" ]
       interval: 30s
@@ -105,17 +112,18 @@ services:
     image: nginx:alpine
     container_name: nginx
     ports:
-      - "80:80"
+      - "80:80"  # ONLY public entry point
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - app
+    networks:
+      - internal
 
   loki:
     image: grafana/loki:3.4.2
     container_name: loki
-    ports:
-      - "3100:3100"
+    # No ports: exposed — only reachable internally by Grafana and Promtail
     volumes:
       - ./loki-config.yml:/etc/loki/local-config.yaml
       - loki-data:/loki
@@ -126,6 +134,25 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - internal
+
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: socket-proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1        # Allow listing containers (needed for discovery)
+      - POST=0              # Block all write operations
+      - ALLOW_START=0
+      - ALLOW_STOP=0
+      - NETWORKS=0          # Block network inspection
+      - SERVICES=0
+      - INFO=0              # Block engine info (hides host details)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - internal
 
   promtail:
     image: grafana/promtail:3.4.2
@@ -133,10 +160,17 @@ services:
     volumes:
       - ./promtail-config.yml:/etc/promtail/config.yml
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # No docker.sock — uses socket-proxy instead
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
+      - socket-proxy
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
 
 volumes:
   loki-data:

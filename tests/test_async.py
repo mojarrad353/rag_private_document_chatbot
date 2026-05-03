@@ -10,8 +10,9 @@ def client():
         yield client
 
 
+@patch("src.app.validate_session_id", return_value=None)
 @patch("src.app.process_files_batch_task")
-def test_upload_file_async(mock_task, client):
+def test_upload_file_async(mock_task, mock_validate, client):
     """Test that file upload triggers an async task."""
     # Mock file save to avoid disk write
     with patch("werkzeug.datastructures.FileStorage.save"):
@@ -23,8 +24,8 @@ def test_upload_file_async(mock_task, client):
         import io
 
         data = {
-            "file": (io.BytesIO(b"dummy content"), "test.pdf"),
-            "session_id": "test_session",
+            "file": (io.BytesIO(b"%PDF-1.4 fake pdf for testing"), "test.pdf"),
+            "session_id": "aB3dEf7hIjKlMnOpQrStUv",
         }
         response = client.post("/upload", data=data, content_type="multipart/form-data")
 

@@ -4,43 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Chatbot</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; height: 100vh; margin: 0; }
-        .container { width: 100%; max-width: 700px; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 95vh; margin-top: 2.5vh; border-radius: 8px; overflow: hidden; }
-        
-        /* Top Section: Header & Upload */
-        .header { background: #007bff; color: white; padding: 15px; text-align: center; }
-        .upload-area { background: #f8f9fa; padding: 15px; border-bottom: 1px solid #ddd; display: flex; gap: 10px; align-items: center; justify-content: center;}
-        
-        /* Chat Section */
-        .chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #fff; }
-        .message { padding: 10px 15px; border-radius: 20px; max-width: 80%; line-height: 1.4; font-size: 0.95rem; }
-        .user-message { background-color: #007bff; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .bot-message { background-color: #e9ecef; color: black; align-self: flex-start; border-bottom-left-radius: 2px; }
-        
-        /* Input Section */
-        .input-area { padding: 15px; border-top: 1px solid #ddd; display: flex; gap: 10px; background: white; }
-        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 20px; outline: none; }
-        
-        /* Buttons */
-        button { border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; color: white; transition: background 0.2s; }
-        .upload-btn { background: #28a745; border-radius: 5px; }
-        .upload-btn:hover { background: #218838; }
-        .send-btn { background: #007bff; }
-        .send-btn:hover { background: #0056b3; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-
-        .status { font-size: 0.8em; text-align: center; color: #666; margin-bottom: 5px; min-height: 1.2em; }
-    </style>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
 <div class="container">
     <div class="header"><h3>Private Document Chatbot</h3></div>
-    
+
     <div class="upload-area">
         <input type="file" id="pdf-file" accept=".pdf" multiple>
-        <button class="upload-btn" onclick="uploadFiles()" id="upload-btn">Upload PDFs</button>
+        <button class="upload-btn" id="upload-btn">Upload PDFs</button>
     </div>
     <div class="status" id="status-msg"></div>
 
@@ -50,167 +23,11 @@
 
     <div class="input-area">
         <input type="text" id="user-input" placeholder="Type your question..." disabled>
-        <button class="send-btn" onclick="sendMessage()" id="send-btn" disabled>Send</button>
+        <button class="send-btn" id="send-btn" disabled>Send</button>
     </div>
 </div>
 
-<script>
-    // Generate a unique session ID for this browser tab
-    const sessionId = Math.random().toString(36).substring(7);
-
-    async function uploadFiles() {
-        const fileInput = document.getElementById('pdf-file');
-        const files = fileInput.files;
-        const statusMsg = document.getElementById('status-msg');
-        const uploadBtn = document.getElementById('upload-btn');
-
-        if (files.length === 0) {
-            alert("Please select at least one file first.");
-            return;
-        }
-
-        const formData = new FormData();
-        for (let i = 0; i < files.length; i++) {
-            formData.append('file', files[i]);
-        }
-        formData.append('session_id', sessionId);
-
-        statusMsg.innerText = `Uploading ${files.length} file(s)...`;
-        statusMsg.style.color = "#666";
-        uploadBtn.disabled = true;
-
-        try {
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-            
-            if (response.ok && result.task_ids) {
-                const fileCount = result.file_count || files.length;
-                statusMsg.innerText = `Processing ${fileCount} files... please wait.`;
-                statusMsg.style.color = "#e67e22";
-                // Poll for task completion
-                pollTasksStatus(result.task_ids, fileCount);
-            } else {
-                statusMsg.innerText = "Error: " + (result.error || "Upload failed");
-                statusMsg.style.color = "red";
-                uploadBtn.disabled = false;
-            }
-        } catch (error) {
-            console.error(error);
-            statusMsg.innerText = "Upload failed. Please try again.";
-            statusMsg.style.color = "red";
-            uploadBtn.disabled = false;
-        }
-    }
-
-    function pollTasksStatus(taskIds, fileCount) {
-        const statusMsg = document.getElementById('status-msg');
-        const uploadBtn = document.getElementById('upload-btn');
-        let completedTasks = new Set();
-        let failed = false;
-
-        const interval = setInterval(async () => {
-            if (failed) {
-                clearInterval(interval);
-                return;
-            }
-
-            try {
-                for (const taskId of taskIds) {
-                    if (completedTasks.has(taskId)) continue;
-
-                    const res = await fetch(`/status/${taskId}`);
-                    const data = await res.json();
-
-                    if (data.state === 'SUCCESS') {
-                        completedTasks.add(taskId);
-                    } else if (data.state === 'FAILURE') {
-                        failed = true;
-                        clearInterval(interval);
-                        statusMsg.innerText = `❌ Processing failed for a document: ${data.status || "Unknown error"}`;
-                        statusMsg.style.color = "red";
-                        uploadBtn.disabled = false;
-                        return;
-                    }
-                }
-
-                if (completedTasks.size === taskIds.length) {
-                    clearInterval(interval);
-                    statusMsg.innerText = `✅ All ${fileCount} files ready! You can now chat.`;
-                    statusMsg.style.color = "green";
-                    document.getElementById('user-input').disabled = false;
-                    document.getElementById('send-btn').disabled = false;
-                    document.getElementById('user-input').focus();
-                    addMessage(`I have read ${fileCount} documents. I will provide citations in my answers. What would you like to know?`, 'bot-message');
-                } else {
-                    statusMsg.innerText = `⏳ Processing documents (${completedTasks.size}/${taskIds.length})... please wait.`;
-                }
-            } catch (err) {
-                console.error(err);
-                // We'll retry on the next interval
-            }
-        }, 2000);
-    }
-
-    async function sendMessage() {
-        const inputField = document.getElementById("user-input");
-        const sendBtn = document.getElementById("send-btn");
-        const text = inputField.value.trim();
-        
-        if (!text) return;
-
-        // 1. Show User Message
-        addMessage(text, 'user-message');
-        inputField.value = "";
-        inputField.disabled = true;
-        sendBtn.disabled = true;
-
-        try {
-            // 2. Send to Backend
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, session_id: sessionId })
-            });
-
-            const data = await response.json();
-            
-            // 3. Show Bot Response
-            if (data.answer !== undefined) {
-                const botAnswer = data.answer || "I'm sorry, I couldn't generate an answer based on the document.";
-                addMessage(botAnswer, 'bot-message');
-            } else if (data.error) {
-                addMessage("Error: " + data.error, 'bot-message');
-            } else {
-                addMessage("An unknown error occurred on the server.", 'bot-message');
-            }
-
-        } catch (error) {
-            addMessage("Error: Could not reach server.", 'bot-message');
-        } finally {
-            inputField.disabled = false;
-            sendBtn.disabled = false;
-            inputField.focus();
-        }
-    }
-
-    function addMessage(text, className) {
-        const chatBox = document.getElementById("chat-box");
-        const div = document.createElement("div");
-        div.className = `message ${className}`;
-        div.innerText = text;
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-    
-    // Enable "Enter" key to send
-    document.getElementById("user-input").addEventListener("keypress", function(event) {
-        if (event.key === "Enter") sendMessage();
-    });
-</script>
+<script src="/static/app.js"></script>
 
 </body>
 </html>

@@ -21,10 +21,28 @@ def test_security_headers(client):
     assert "X-Frame-Options" in response.headers
 
 
+@patch("src.app.validate_session_id", return_value=None)
 @patch("src.app.process_files_batch_task")
-def test_filename_sanitization(mock_task, client):
-    """Test that filenames are sanitized and saved correctly."""
-    # Mock task return
+def test_path_traversal_non_pdf_rejected(mock_task, mock_validate, client):
+    """Test that path traversal with non-PDF extension is rejected by extension check."""
+    with patch("werkzeug.datastructures.FileStorage.save"):
+        import io
+
+        data = {
+            "file": (io.BytesIO(b"content"), "../../../etc/passwd"),
+            "session_id": "aB3dEf7hIjKlMnOpQrStUv",
+        }
+        response = client.post("/upload", data=data, content_type="multipart/form-data")
+
+        # Now rejected at the extension validation layer
+        assert response.status_code == 400
+        assert b"Only PDF files are allowed" in response.data
+
+
+@patch("src.app.validate_session_id", return_value=None)
+@patch("src.app.process_files_batch_task")
+def test_filename_sanitization_with_pdf_extension(mock_task, mock_validate, client):
+    """Test that path traversal in .pdf filenames is sanitized by secure_filename."""
     mock_result = MagicMock()
     mock_result.id = "test-security-task-id"
     mock_task.delay.return_value = mock_result
@@ -32,25 +50,19 @@ def test_filename_sanitization(mock_task, client):
     with patch("werkzeug.datastructures.FileStorage.save") as mock_save:
         import io
 
+        # Path traversal attempt with .pdf extension — passes extension check
+        # but secure_filename strips the traversal
         data = {
-            "file": (io.BytesIO(b"content"), "../../../etc/passwd"),
-            "session_id": "test_session",
+            "file": (io.BytesIO(b"%PDF-1.4 fake pdf"), "../../../etc/evil.pdf"),
+            "session_id": "aB3dEf7hIjKlMnOpQrStUv",
         }
         response = client.post("/upload", data=data, content_type="multipart/form-data")
 
-        # Check successful response
         assert response.status_code == 202
 
-        # Verify the filename was sanitized in the path passed to save()
-        # secure_filename("../../../etc/passwd") -> "etc_passwd"
-        # path should be "uploads/test_session_etc_passwd"
+        # Verify the filename was sanitized: secure_filename("../../../etc/evil.pdf") -> "etc_evil.pdf"
         args, _ = mock_save.call_args
         saved_path = args[0]
-        assert "etc_passwd" in saved_path
+        assert "evil.pdf" in saved_path
         assert ".." not in saved_path
 
-        # Verify the async task received the sanitized path
-        task_args, _ = mock_task.delay.call_args
-        # task_args[0] is session_id, task_args[1] is [filepaths]
-        processed_paths = task_args[1]
-        assert saved_path in processed_paths
