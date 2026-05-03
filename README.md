@@ -1,4 +1,4 @@
-# Private Document Chatbot with Multi-Doc Graph RAG
+# Private Document Chatbot with Multi-Doc RAG
 
 [![CI](https://github.com/mojarrad353/rag_private_document_chatbot/actions/workflows/ci.yml/badge.svg)]
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue?logo=python&logoColor=white)](https://www.python.org/downloads/)
@@ -15,7 +15,7 @@ A high-performance, private Retrieval-Augmented Generation (RAG) chatbot designe
 ## 🚀 Key Features
 
 - **Multi-Document Support**: Upload and chat with multiple PDF files simultaneously.
-- **Graph RAG Orchestration**: Built with **LangGraph** to handle complex, parallel retrieval branches (Map-Reduce pattern).
+- **RAG Orchestration**: Built with **LangGraph** to handle complex, parallel retrieval branches (Map-Reduce pattern).
 - **Asynchronous Processing**: Background file indexing using **Celery** and **Redis** to ensure a responsive UI.
 - **State-of-the-Art Retrieval**: Uses **PyMuPDF** for high-fidelity extraction and **ChromaDB** for vector storage.
 - **Production-Ready Observability**: Full integration with the Prometheus/Grafana/Loki stack and LangSmith for real-time monitoring.
@@ -39,7 +39,7 @@ A high-performance, private Retrieval-Augmented Generation (RAG) chatbot designe
 ├── scripts/           # Utility scripts (AI Code Review)
 ├── src/               # Main application source code
 │   ├── app.py         # Flask API, routes & security middleware
-│   ├── rag.py         # Graph RAG logic, LLM orchestration & I/O sanitization
+│   ├── rag.py         # RAG logic, LLM orchestration & I/O sanitization
 │   ├── tasks.py       # Celery background tasks
 │   ├── celery_app.py  # Celery initialization
 │   ├── config.py      # Environment & Settings
