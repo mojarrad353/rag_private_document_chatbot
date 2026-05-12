@@ -145,7 +145,7 @@ uv run pytest --cov=src
 ```
 
 ### Retrieval Benchmarking
-To re-run the multi-document precision benchmarks (requires Docugami KG-RAG dataset in `tests/fixtures/docugami`):
+To re-run the multi-document precision benchmarks (requires Docugami KG-RAG dataset available in `tests/fixtures/docugami`):
 1.  **Run Evaluation**: `uv run pytest tests/test_multi_doc_precision.py -s`
 
 ## 📈 Retrieval Performance Evaluation
