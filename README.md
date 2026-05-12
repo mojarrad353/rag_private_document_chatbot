@@ -15,15 +15,16 @@ A high-performance, private Retrieval-Augmented Generation (RAG) chatbot designe
 ## 🚀 Key Features
 
 - **Multi-Document Support**: Upload and chat with multiple PDF files simultaneously.
+- **Advanced Retrieval Pipeline**: Features **Parent Document Retrieval (PDR)** to handle large documents without losing context, and **Cross-Encoder Reranking** for high precision.
 - **RAG Orchestration**: Built with **LangGraph** to handle complex, parallel retrieval branches (Map-Reduce pattern).
 - **Asynchronous Processing**: Background file indexing using **Celery** and **Redis** to ensure a responsive UI.
-- **State-of-the-Art Retrieval**: Uses **PyMuPDF** for high-fidelity extraction and **ChromaDB** for vector storage.
+- **State-of-the-Art Extraction**: Uses **PyMuPDF** for high-fidelity extraction and **ChromaDB** for vector storage.
 - **Production-Ready Observability**: Full integration with the Prometheus/Grafana/Loki stack and LangSmith for real-time monitoring.
-- **Defense-in-Depth Security**: Multi-layered hardening against prompt injection, file upload attacks, session forgery, and network-level threats (see [Security](#-security) section).
+- **Defense-in-Depth Security**: Multi-layered hardening against prompt injection, file upload attacks, session forgery, and network-level threats.
 
 ## 🛠 Technology Stack
 
-- **AI/LLM**: LangChain, LangGraph, OpenAI (GPT-4o-mini), HuggingFace (Local Embeddings).
+- **AI/LLM**: LangChain, LangGraph, OpenAI (GPT-4o-mini), HuggingFace (Local Embeddings & Cross-Encoders).
 - **Backend**: Flask (Python 3.12), Gunicorn, Celery.
 - **Data Layers**: ChromaDB (Vector Store), Redis (Task Queue & Chat History).
 - **Infrastructure**: Docker Compose, Nginx (Reverse Proxy & Rate Limiting).
@@ -39,16 +40,17 @@ A high-performance, private Retrieval-Augmented Generation (RAG) chatbot designe
 ├── scripts/           # Utility scripts (AI Code Review)
 ├── src/               # Main application source code
 │   ├── app.py         # Flask API, routes & security middleware
-│   ├── rag.py         # RAG logic, LLM orchestration & I/O sanitization
-│   ├── tasks.py       # Celery background tasks
+│   ├── rag.py         # RAG logic, Cross-Encoder reranking & I/O
+│   ├── tasks.py       # Celery background tasks for ingestion
 │   ├── celery_app.py  # Celery initialization
 │   ├── config.py      # Environment & Settings
-│   ├── static/        # External CSS & JS (CSP-compliant, no inline code)
-│   │   ├── style.css  # Application styles
-│   │   └── app.js     # Client-side logic (session init, upload, chat)
-│   └── templates/     # HTML template (index.html)
-├── tests/             # Comprehensive Pytest suite (89%+ coverage)
-├── docker-compose.yml # Full stack orchestration (network-isolated)
+│   ├── static/        # CSP-compliant Frontend assets
+│   └── templates/     # HTML5 Semantic Template
+├── tests/             # Comprehensive Pytest suite (93%+ coverage)
+│   ├── test_rag.py    # Unit tests for core RAG logic (Mocks)
+│   ├── test_security.py # Security & Path Traversal tests
+│   └── ...            # Integration & Benchmark tests
+├── docker-compose.yml # Full stack orchestration
 ├── promtail-config.yml # Log collection config (uses socket proxy)
 └── README.md          # You are here
 ```
@@ -112,6 +114,7 @@ This project implements a **defense-in-depth** strategy with multiple independen
 | **Security Headers** | X-Content-Type-Options, X-Frame-Options, CSP via Flask-Talisman | `app.py` |
 | **Docker Socket Proxy** | Promtail connects to `tecnativa/docker-socket-proxy` instead of raw `/var/run/docker.sock` — blocks access to container env vars (API keys) | `docker-compose.yml` |
 | **Grafana Localhost-Only** | Grafana bound to `127.0.0.1:3001` — not reachable from external networks | `docker-compose.yml` |
+| **Cross-Encoder Safety** | Local reranker avoids sending full document chunks to external APIs during the ranking stage | `rag.py` |
 
 ## 📊 Observability & Metrics
 
@@ -131,7 +134,7 @@ The system is equipped with a full observability stack to monitor AI performance
 
 This project maintains high standards of code quality, enforced by GitHub Actions:
 
-- **Pytest**: **89%+ coverage** across the core RAG, API, and security logic (32 tests).
+- **Pytest**: **93%+ coverage** across the core RAG, API, and security logic (52 tests).
 - **Pylint**: Adheres to strict coding standards (Score > 9.0).
 - **Mypy**: Full type-checking for static safety.
 - **Black**: Automatic code formatting.
@@ -140,5 +143,25 @@ Run local tests with:
 ```bash
 uv run pytest --cov=src
 ```
+
+### Retrieval Benchmarking
+To re-run the multi-document precision benchmarks (requires Docugami KG-RAG dataset in `tests/fixtures/docugami`):
+1.  **Run Evaluation**: `uv run pytest tests/test_multi_doc_precision.py -s`
+
+## 📈 Retrieval Performance Evaluation
+
+The retrieval quality has been evaluated on the **Docugami KG-RAG** dataset, using multi-document financial queries on native SEC 10-Q PDFs.
+
+### Benchmark Results
+| Metric | Score | Note |
+| :--- | :--- | :--- |
+| **Accuracy@4** | **92.19%** | The system finds at least one correct PDF for >90% of complex queries. |
+| **Recall@4** | **68.36%** | High coverage across all relevant quarterly reports. |
+| **Precision@4** | **61.72%** | Minimal noise provided to the LLM. |
+| **F1 Score@4** | **63.65%** | Balanced measure of retrieval quality. |
+| **MRR** | **0.76** | The most relevant document is consistently at rank 1 or 2. |
+
+
+
 
 

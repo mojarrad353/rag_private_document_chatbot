@@ -39,6 +39,13 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = "."
 addopts = "--cov=src --cov-report=term-missing"
+markers = [
+    "retrieval: Tests using real embeddings (no LLM, fast, free)",
+    "generation: Tests using real LLM (costs money, slower)",
+    "e2e: Full pipeline tests (real LLM + real embeddings + real PDF)",
+    "safety: Prompt injection and adversarial input tests",
+    "regression: Golden dataset regression tests",
+]
 
 [tool.mypy]
 python_version = "3.12"
