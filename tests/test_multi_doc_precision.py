@@ -3,7 +3,7 @@ import csv
 import time
 import pytest
 import re
-from typing import List, Dict
+from typing import List, Dict, Any
 
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_community.vectorstores import Chroma
@@ -22,8 +22,8 @@ PDF_DIR = os.path.join(FIXTURES_DIR, "pdfs")
 CSV_PATH = os.path.join(FIXTURES_DIR, "qna_data.csv")
 
 
-def parse_ground_truth(csv_path: str, limit: int = 100) -> List[Dict]:
-    cases = []
+def parse_ground_truth(csv_path: str, limit: int = 100) -> List[Dict[str, Any]]:
+    cases: List[Dict[str, Any]] = []
     if not os.path.exists(csv_path):
         return cases
 

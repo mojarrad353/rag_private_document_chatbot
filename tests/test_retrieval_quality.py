@@ -46,8 +46,9 @@ PDF_FILES = {
 # ── Ground truth from HuggingFace dwb2023/ragas-golden-dataset ──────────
 # Each entry: question, key phrases that MUST be in retrieved context,
 # and which PDF(s) should contain the answer.
+from typing import Any, Dict, cast
 
-GROUND_TRUTH = [
+GROUND_TRUTH: List[Dict[str, Any]] = [
     {
         "id": "hf_01",
         "query": "What was AI agent design like in the pre-2022 era?",
@@ -303,7 +304,9 @@ def _precision_at_k(results: List[Document], expected_pdf_key: str) -> float:
 class TestRecallAtK:
     """Recall@K — does the correct content appear in top K chunks?"""
 
-    @pytest.mark.parametrize("case", GROUND_TRUTH, ids=[c["id"] for c in GROUND_TRUTH])
+    @pytest.mark.parametrize(
+        "case", GROUND_TRUTH, ids=[str(c["id"]) for c in GROUND_TRUTH]
+    )
     def test_recall_at_3(self, retriever, case):
         retriever.search_kwargs = {"k": 3}
         results = retriever.invoke(case["query"])
@@ -320,7 +323,9 @@ class TestRecallAtK:
         # This is a measurement — we collect, not assert per-query for recall@3
         # (assertion is on aggregate in TestAggregateReport)
 
-    @pytest.mark.parametrize("case", GROUND_TRUTH, ids=[c["id"] for c in GROUND_TRUTH])
+    @pytest.mark.parametrize(
+        "case", GROUND_TRUTH, ids=[str(c["id"]) for c in GROUND_TRUTH]
+    )
     def test_recall_at_5(self, retriever, case):
         retriever.search_kwargs = {"k": 5}
         results = retriever.invoke(case["query"])
@@ -335,7 +340,9 @@ class TestRecallAtK:
                 + "\n".join(previews)
             )
 
-    @pytest.mark.parametrize("case", GROUND_TRUTH, ids=[c["id"] for c in GROUND_TRUTH])
+    @pytest.mark.parametrize(
+        "case", GROUND_TRUTH, ids=[str(c["id"]) for c in GROUND_TRUTH]
+    )
     def test_recall_at_10(self, retriever, case):
         """Relaxed recall — correct chunk should be in top 10."""
         retriever.search_kwargs = {"k": 10}
