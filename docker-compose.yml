@@ -1,5 +1,6 @@
 services:
   app:
+    image: ${APP_IMAGE:-}
     build: .
     command: sh -c "uv sync && gunicorn --bind 0.0.0.0:5000 --reload --timeout 120 src.app:app"
     # No ports: exposed — only reachable via Nginx on the internal network
@@ -73,6 +74,7 @@ services:
       - internal
 
   worker:
+    image: ${APP_IMAGE:-}
     build: .
     container_name: worker
     command: sh -c "uv sync && celery -A src.celery_app.celery_app worker --loglevel=info"

@@ -1,0 +1,78 @@
+name: CD — Deploy to AWS EC2
+
+on:
+  workflow_run:
+    workflows: ["CI"]       # Listen for CI workflow
+    types:
+      - completed
+
+jobs:
+  deploy:
+    name: Build, Push & Deploy
+    runs-on: ubuntu-latest
+    # Only deploy if the triggering CI workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+
+    steps:
+      # ─── Step 1: Checkout code ───────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ─── Step 2: Configure AWS credentials ──────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ─── Step 3: Log in to Amazon ECR ───────────────────────────────────
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ─── Step 4: Build and push Docker image ────────────────────────────
+      - name: Build and push Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}   # Unique tag per commit
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+                     $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          # Save the full image URI for the next step
+          echo "IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
+
+      # ─── Step 5: SSH into EC2 and deploy ─────────────────────────────────
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: IMAGE_URI,AWS_REGION
+          script: |
+            cd ~/rag_private_document_chatbot
+
+            # Authenticate Docker with ECR
+            aws ecr get-login-password --region $AWS_REGION | \
+              docker login --username AWS --password-stdin \
+              $(echo $IMAGE_URI | cut -d'/' -f1)
+
+            # Pull the new image
+            docker pull $IMAGE_URI
+
+            # Update docker-compose to use the exact new image
+            export APP_IMAGE=$IMAGE_URI
+
+            # Restart only the app and worker with the new image
+            docker compose up -d --no-build app worker
+
+            # Clean up old images to save disk space
+            docker image prune -f
+
+            echo "✅ Deployment complete: $IMAGE_URI"
